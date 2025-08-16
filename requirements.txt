@@ -1,0 +1,8 @@
+streamlit
+PyPDF2
+pdfplumber
+pandas
+requests
+urllib3
+supabase
+python-dotenv 
