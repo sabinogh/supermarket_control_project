@@ -30,14 +30,17 @@ if st.button("🔍 Buscar Compras"):
         st.error("❌ A data de início deve ser menor ou igual à data de fim.")
     else:
         with st.spinner("Buscando compras..."):
-            compras = db_queries.get_compras_periodo(data_inicio, data_fim)
+            # Busca dados para estatísticas (cabeçalho)
+            compras_cabecalho = db_queries.get_compras_cabecalho_periodo(data_inicio, data_fim)
+            # Chama a função RPC para obter os dados detalhados para a tabela
+            compras_detalhadas = db_queries.get_compras_detalhadas_rpc(data_inicio, data_fim)
 
-            if compras:
-                # Converte para DataFrame
-                df = pd.DataFrame(compras)
+            if compras_cabecalho and compras_detalhadas:
+                df_cabecalho = pd.DataFrame(compras_cabecalho)
+                df_detalhadas = pd.DataFrame(compras_detalhadas)
 
-                if not df.empty:
-                    st.success(f"✅ Encontradas {len(df)} compras no período selecionado!")
+                if not df_cabecalho.empty and not df_detalhadas.empty:
+                    st.success(f"✅ Encontrados {len(df_detalhadas)} itens de compras no período selecionado!")
 
                     # ======================
                     # Estatísticas
@@ -45,34 +48,40 @@ if st.button("🔍 Buscar Compras"):
                     st.subheader("📈 Estatísticas do Período")
                     col1, col2, col3 = st.columns(3)
 
+                    # Total Gasto: Somatória dos valores do DB "compras_item[valor_total]"
+                    total_gasto = df_detalhadas["valor_total"].sum()
                     with col1:
-                        total_gasto = df["valor_total"].sum()
                         st.metric("Total Gasto", f"R$ {total_gasto:.2f}")
 
-                    descontos_unicos = df["descontos"].sum()
+                    # Total Desconto: Somatória dos valores do DB "compras_cabecalho[descontos]"
+                    # Agora usando df_cabecalho para somar os descontos do cabeçalho
+                    total_desconto = df_cabecalho["descontos"].sum()
                     with col2:
-                        st.metric("Total Descontos", f"R$ {descontos_unicos:.2f}")
+                        st.metric("Total Desconto", f"R$ {total_desconto:.2f}")
 
-                    valor_final = df["valor_final_pago"].sum()
+                    # Valor Final Pago: Resultado de "compras_item[valor_total]" - "compras_cabecalho[descontos]"
+                    valor_final_pago = total_gasto - total_desconto
                     with col3:
-                        st.metric("Valor Final Pago", f"R$ {valor_final:.2f}")
+                        st.metric("Valor Final Pago", f"R$ {valor_final_pago:.2f}")
 
                     # ======================
                     # Tabela de Compras
                     # ======================
                     st.subheader("📋 Compras do Período")
 
-                    # Renomear colunas para visualização mais amigável
-                    df_visualizacao = df.rename(columns={
+                    # As colunas já vêm formatadas da RPC, basta renomear para exibição
+                    # Removendo a coluna "desconto" da visualização da tabela
+                    df_visualizacao = df_detalhadas.drop(columns=["desconto"], errors="ignore").rename(columns={
                         "data_compra": "Data da Compra",
+                        "item": "Item",
+                        "descricao": "Descrição",
+                        "quantidade": "Quantidade",
+                        "unidade": "Unidade",
+                        "valor_unitario": "Valor Unitário",
                         "valor_total": "Valor Total",
-                        "descontos": "Descontos",
-                        "valor_final_pago": "Valor Final Pago"
+                        "mercado": "Mercado",
+                        "cidade": "Cidade"
                     })
-
-                    # Remover colunas técnicas
-                    colunas_ocultas = ["id", "mercado_id", "created_at"]
-                    df_visualizacao = df_visualizacao.drop(columns=colunas_ocultas, errors="ignore")
 
                     st.dataframe(df_visualizacao, use_container_width=True)
 
@@ -83,11 +92,13 @@ if st.button("🔍 Buscar Compras"):
                     st.download_button(
                         label="📥 Download CSV",
                         data=csv,
-                        file_name=f"compras_{data_inicio}_{data_fim}.csv",
+                        file_name=f"compras_detalhadas_{data_inicio}_{data_fim}.csv",
                         mime="text/csv"
                     )
 
                 else:
                     st.info("📭 Nenhuma compra encontrada no período selecionado.")
             else:
-                st.error("❌ Erro ao buscar compras. Verifique a conexão com o banco de dados.")
+                st.error("❌ Erro ao buscar compras. Verifique a conexão com o banco de dados ou se há dados no período.")
+
+

@@ -34,8 +34,8 @@ def insert_compra(data):
     res = supabase.table("compras_cabecalho").insert(data).execute()
     return res.data[0] if res.data else None
 
-def get_compras_periodo(start_date, end_date):
-    """Busca compras em um intervalo de datas"""
+def get_compras_cabecalho_periodo(start_date, end_date):
+    """Busca compras em um intervalo de datas (apenas cabeçalho)"""
     res = (
         supabase.table("compras_cabecalho")
         .select("*")
@@ -44,6 +44,14 @@ def get_compras_periodo(start_date, end_date):
         .order("data_compra", desc=False)
         .execute()
     )
+    return res.data
+
+def get_compras_detalhadas_rpc(start_date, end_date):
+    """Chama a função RPC para buscar compras detalhadas em um intervalo de datas"""
+    res = supabase.rpc(
+        "get_compras_detalhadas_periodo",
+        {"data_inicio": str(start_date), "data_fim": str(end_date)}
+    ).execute()
     return res.data
 
 # ======================
