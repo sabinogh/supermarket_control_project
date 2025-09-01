@@ -5,6 +5,9 @@ import pdfplumber
 import re
 import datetime
 
+st.sidebar.title("Menu de Navegação")
+st.sidebar.markdown("""GSproject""")
+
 st.title("📝 Registrar Compras")
 st.write("Aqui você pode registrar via upload de nota fiscal (PDF) ou manualmente.")
 
@@ -36,7 +39,7 @@ def registrar_compra_e_itens(mercado_id, data_compra, valor_total_cabecalho, des
         status_text = st.empty()
 
         for i, item in enumerate(itens_para_db):
-            status_text.text(f"Registrando item {i+1} de {total_itens}: {item['descricao']}")
+            status_text.text(f"Registrando item {i+1} de {total_itens}: {item["descricao"]}")
             try:
                 db_queries.insert_item({
                     "compra_id": compra_id,
@@ -44,7 +47,7 @@ def registrar_compra_e_itens(mercado_id, data_compra, valor_total_cabecalho, des
                 })
                 itens_registrados += 1
             except Exception as e:
-                st.warning(f"Erro ao registrar item: {item['descricao']} - {e}")
+                st.warning(f"Erro ao registrar item: {item["descricao"]} - {e}")
 
             progress = (i + 1) / total_itens
             progress_bar.progress(progress)
@@ -69,7 +72,7 @@ if modo == "Upload PDF":
 
     uploaded_file = st.file_uploader("Faça upload da sua nota fiscal (PDF)", type=["pdf"])
     if uploaded_file is not None:
-        st.success(f"Arquivo '{uploaded_file.name}' enviado com sucesso!")
+        st.success(f"Arquivo \'{uploaded_file.name}\' enviado com sucesso!")
         try:
             with pdfplumber.open(uploaded_file) as pdf:
                 texto = ""
@@ -77,8 +80,11 @@ if modo == "Upload PDF":
                     texto += page.extract_text() + "\n"
 
             # Regex para extrair os itens do PDF
+            # Padrão ajustado para capturar: Descrição, Código, Quantidade, Unidade, Valor Unitário, Valor Total
+            # Tornando a regex mais robusta a variações de espaçamento e garantindo a captura correta dos grupos.
+            # Removido \\ de \\( e \\) pois não são necessários para escapar parênteses literais em Python regex strings.
             padrao_item = re.compile(
-                r"(.+?) \\(Código: (\\d+) \\) Vl\\. Total\\s*\\nQtde\\.:([\\d,.]+) UN: (\\w+) Vl\\. Unit\\.: ([\\d,.]+) ([\\d,.]+)"
+                r"(.+?) \(Código:\s*(\d+)\s*\) Vl\.\s*Total\s*\nQtde\.:([\d,.]+) UN:\s*(\w+)\s*Vl\.\s*Unit\.:\s*([\d,.]+) ([\d,.]+)"
             )
 
             itens_tabela = []
@@ -116,7 +122,7 @@ if modo == "Upload PDF":
                 mercados = db_queries.buscar_mercados()
                 st.subheader("Selecione o Mercado")
                 if not mercados:
-                    st.info("Nenhum mercado cadastrado. Por favor, vá para a página 'Mercados' e cadastre um mercado antes de registrar a compra.")
+                    st.info("Nenhum mercado cadastrado. Por favor, vá para a página \'Mercados\' e cadastre um mercado antes de registrar a compra.")
                 else:
                     opcoes = [f"{m['nome']} - {m['cidade']}" for m in mercados]
                     idx = st.selectbox("Mercado", options=list(range(len(opcoes))),
@@ -148,7 +154,7 @@ elif modo == "Manual":
     # Seleção do mercado
     mercados = db_queries.buscar_mercados()
     if not mercados:
-        st.info("Nenhum mercado cadastrado. Por favor, vá para a página 'Mercados' e cadastre um mercado antes de registrar a compra.")
+        st.info("Nenhum mercado cadastrado. Por favor, vá para a página \'Mercados\' e cadastre um mercado antes de registrar a compra.")
     else:
         opcoes_mercados = [f"{m['nome']} - {m['cidade']}" for m in mercados]
         idx_mercado_manual = st.selectbox("Selecione o Mercado", options=list(range(len(opcoes_mercados))),

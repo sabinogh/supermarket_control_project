@@ -2,6 +2,9 @@ import streamlit as st
 from services import db_queries
 import pandas as pd
 
+st.sidebar.title("Menu de Navegação")
+st.sidebar.markdown("""GSproject""")
+
 st.title("🏪 Cadastro e Consulta de Mercados")
 
 st.header("Cadastrar novo mercado")

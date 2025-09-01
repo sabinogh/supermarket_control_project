@@ -2,6 +2,9 @@ import streamlit as st
 
 st.set_page_config(page_title="Página Inicial", layout="wide")
 
+st.sidebar.title("Menu de Navegação")
+st.sidebar.markdown("""GSproject""")
+
 st.title("📊 Controle de Gastos no Mercado")
 st.write("Bem-vindo ao seu painel de controle!")
 

@@ -2,6 +2,10 @@ import streamlit as st
 import pandas as pd
 from services import db_queries
 import datetime
+import plotly.express as px
+
+st.sidebar.title("Menu de Navegação")
+st.sidebar.markdown("""GSproject""")
 
 st.title("📊 Análise de Compras")
 
@@ -55,19 +59,14 @@ if st.button("🔍 Buscar Compras"):
                     if mercados_selecionados:
                         df_detalhadas_filtrado = df_detalhadas[df_detalhadas["mercado"].isin(mercados_selecionados)]
                         
-                        # Para filtrar o cabeçalho, precisamos dos IDs dos mercados correspondentes aos nomes selecionados
-                        # e das datas de compra presentes nos itens detalhados filtrados.
-                        
-                        # Obter os IDs dos mercados selecionados a partir dos nomes
+                        # Para filtrar o cabeçalho, precisamos dos IDs dos mercados correspondentes
                         todos_mercados_db = db_queries.buscar_mercados()
                         df_todos_mercados = pd.DataFrame(todos_mercados_db)
                         
-                        # Filtrar os IDs dos mercados com base nos nomes selecionados
                         mercado_ids_selecionados = df_todos_mercados[
                             df_todos_mercados["nome"].isin(mercados_selecionados)
                         ]["id"].tolist()
 
-                        # Filtrar o DataFrame de cabeçalho com base nos IDs dos mercados selecionados
                         df_cabecalho_filtrado = df_cabecalho[
                             df_cabecalho["mercado_id"].isin(mercado_ids_selecionados)
                         ]
@@ -79,17 +78,14 @@ if st.button("🔍 Buscar Compras"):
                             st.subheader("📈 Estatísticas do Período")
                             col1, col2, col3 = st.columns(3)
 
-                            # Total Gasto: Somatória dos valores do DB "compras_item[valor_total]"
                             total_gasto = df_detalhadas_filtrado["valor_total"].sum()
                             with col1:
                                 st.metric("Total Gasto", f"R$ {total_gasto:.2f}")
 
-                            # Total Desconto: Somatória dos valores do DB "compras_cabecalho[descontos]"
                             total_desconto = df_cabecalho_filtrado["descontos"].sum()
                             with col2:
                                 st.metric("Total Desconto", f"R$ {total_desconto:.2f}")
 
-                            # Valor Final Pago: Resultado de "compras_item[valor_total]" - "compras_cabecalho[descontos]"
                             valor_final_pago = total_gasto - total_desconto
                             with col3:
                                 st.metric("Valor Final Pago", f"R$ {valor_final_pago:.2f}")
@@ -114,6 +110,63 @@ if st.button("🔍 Buscar Compras"):
                             st.dataframe(df_visualizacao, use_container_width=True)
 
                             # ======================
+                            # Gráficos e Tendências
+                            # ======================
+                            st.subheader("📊 Análises Gráficas e Tendências")
+
+                            # 1. Evolução temporal dos gastos (por dia)
+                            df_temp = df_detalhadas_filtrado.groupby("data_compra").agg({
+                                "valor_total": "sum"
+                            }).reset_index()
+
+                            fig1 = px.line(df_temp, x="data_compra", y="valor_total",
+                                           title="📈 Evolução do Gasto Total (Diário)",
+                                           markers=True)
+                            st.plotly_chart(fig1, use_container_width=True)
+
+                            # 2. Evolução mensal dos gastos
+                            df_detalhadas_filtrado["mes"] = pd.to_datetime(df_detalhadas_filtrado["data_compra"]).dt.to_period("M").astype(str)
+                            df_mensal = df_detalhadas_filtrado.groupby("mes").agg({
+                                "valor_total": "sum"
+                            }).reset_index()
+
+                            fig1b = px.bar(df_mensal, x="mes", y="valor_total",
+                                           title="📆 Evolução do Gasto Mensal",
+                                           text_auto=True)
+                            st.plotly_chart(fig1b, use_container_width=True)
+
+                            # 3. Distribuição de gastos por mercado
+                            df_mercado = df_detalhadas_filtrado.groupby("mercado").agg({
+                                "valor_total": "sum"
+                            }).reset_index()
+
+                            fig2 = px.pie(df_mercado, values="valor_total", names="mercado",
+                                          title="🏪 Distribuição de Gastos por Mercado",
+                                          hole=0.4)
+                            st.plotly_chart(fig2, use_container_width=True)
+
+                            # 4. Produtos mais comprados (Top 10 por valor total)
+                            df_top_produtos = df_detalhadas_filtrado.groupby("descricao").agg({
+                                "valor_total": "sum"
+                            }).reset_index().sort_values(by="valor_total", ascending=False).head(10)
+
+                            fig3 = px.bar(df_top_produtos, x="descricao", y="valor_total",
+                                          title="🍎 Top 10 Produtos por Valor Gasto",
+                                          text_auto=True)
+                            fig3.update_layout(xaxis_tickangle=-45)
+                            st.plotly_chart(fig3, use_container_width=True)
+
+                            # 5. Tendência de descontos
+                            df_desc = df_cabecalho_filtrado.groupby("data_compra").agg({
+                                "descontos": "sum"
+                            }).reset_index()
+
+                            fig4 = px.line(df_desc, x="data_compra", y="descontos",
+                                           title="💸 Evolução dos Descontos no Período",
+                                           markers=True, line_shape="spline")
+                            st.plotly_chart(fig4, use_container_width=True)
+
+                            # ======================
                             # Download dos Dados
                             # ======================
                             csv = df_visualizacao.to_csv(index=False, sep=";")
@@ -132,5 +185,3 @@ if st.button("🔍 Buscar Compras"):
                     st.info("📭 Nenhuma compra encontrada no período selecionado.")
             else:
                 st.error("❌ Erro ao buscar compras. Verifique a conexão com o banco de dados ou se há dados no período.")
-
-
