@@ -5,9 +5,6 @@ import pdfplumber
 import re
 import datetime
 
-st.sidebar.title("Menu de Navegação")
-st.sidebar.markdown("""GSproject""")
-
 st.title("📝 Registrar Compras")
 st.write("Aqui você pode registrar via upload de nota fiscal (PDF) ou manualmente.")
 
@@ -241,5 +238,3 @@ elif modo == "Manual":
                     st.warning("Adicione ao menos um item para registrar a compra.")
         else:
             st.info("Nenhum item adicionado ainda.")
-
-
