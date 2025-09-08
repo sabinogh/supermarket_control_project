@@ -5,6 +5,9 @@ import pdfplumber
 import re
 import datetime
 
+st.sidebar.title("Menu de Navegação")
+st.sidebar.markdown("""GSproject""")
+
 st.title("📝 Registrar Compras")
 st.write("Aqui você pode registrar via upload de nota fiscal (PDF) ou manualmente.")
 
@@ -13,10 +16,13 @@ modo = st.radio("Escolha o modo de registro:", ["Upload PDF", "Manual"])
 # Função para registrar a compra e seus itens
 def registrar_compra_e_itens(mercado_id, data_compra, valor_total_cabecalho, descontos_cabecalho, valor_final_pago_cabecalho, itens_para_db):
     try:
+        # Converte data_compra para string no formato 'YYYY-MM-DD'
+        data_compra_str = data_compra.strftime('%Y-%m-%d')
+
         # 1. Inserir cabeçalho da compra
         compra_cabecalho_data = {
             "mercado_id": mercado_id,
-            "data_compra": data_compra,
+            "data_compra": data_compra_str, # Usa a data convertida
             "valor_total": valor_total_cabecalho,
             "descontos": descontos_cabecalho,
             "valor_final_pago": valor_final_pago_cabecalho
