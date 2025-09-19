@@ -11,6 +11,7 @@ import pdfplumber
 import re
 import datetime
 
+<<<<<<< HEAD
 st.set_page_config(page_title="Registrar Compras", layout="wide")
 
 # Força autenticação
@@ -21,6 +22,10 @@ st.sidebar.title("🛒 Menu de Navegação")
 st.sidebar.markdown("**GSproject**")
 st.sidebar.markdown("---")
 st.sidebar.markdown(f"👤 **{get_user_email()}**")
+=======
+st.sidebar.title("Menu de Navegação")
+st.sidebar.markdown("""GSproject""")
+>>>>>>> b7f0087990b16c115f2cc72a871598ea6fc9993a
 
 st.title("📝 Registrar Compras")
 st.write("Aqui você pode registrar suas compras via upload de nota fiscal (PDF) ou manualmente.")
@@ -33,9 +38,27 @@ modo = st.radio("Escolha o modo de registro:", ["📄 Upload PDF", "✍️ Manua
 # Função para registrar a compra e seus itens com isolamento por usuário
 def registrar_compra_e_itens(mercado_id, data_compra, valor_total_cabecalho, descontos_cabecalho, valor_final_pago_cabecalho, itens_para_db):
     try:
+<<<<<<< HEAD
         user_id = get_user_id()
         if not user_id:
             st.error("❌ Erro: Usuário não autenticado.")
+=======
+        # Converte data_compra para string no formato 'YYYY-MM-DD'
+        data_compra_str = data_compra.strftime('%Y-%m-%d')
+
+        # 1. Inserir cabeçalho da compra
+        compra_cabecalho_data = {
+            "mercado_id": mercado_id,
+            "data_compra": data_compra_str, # Usa a data convertida
+            "valor_total": valor_total_cabecalho,
+            "descontos": descontos_cabecalho,
+            "valor_final_pago": valor_final_pago_cabecalho
+        }
+        compra_registrada = db_queries.insert_compra(compra_cabecalho_data)
+
+        if not compra_registrada:
+            st.error("Erro ao registrar cabeçalho da compra.")
+>>>>>>> b7f0087990b16c115f2cc72a871598ea6fc9993a
             return False
 
         # Converte data_compra para string no formato 'YYYY-MM-DD'
