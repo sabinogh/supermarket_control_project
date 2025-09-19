@@ -43,16 +43,17 @@ if st.button("🔍 Buscar Minhas Compras", type="primary"):
     else:
         with st.spinner("Buscando compras..."):
             # Busca dados para estatísticas (cabeçalho)
-            compras_cabecalho = db_queries.get_compras_cabecalho_periodo(data_inicio, data_fim)
-            # Chama a função RPC para obter os dados detalhados para a tabela
-            compras_detalhadas = db_queries.get_compras_detalhadas_rpc(data_inicio, data_fim)
+            try:
+                compras_cabecalho = db_queries.get_compras_cabecalho_periodo(data_inicio, data_fim)
+                # Chama a função RPC para obter os dados detalhados para a tabela
+                compras_detalhadas = db_queries.get_compras_detalhadas_rpc(data_inicio, data_fim)
 
-            if compras_cabecalho and compras_detalhadas:
-                df_cabecalho = pd.DataFrame(compras_cabecalho)
-                df_detalhadas = pd.DataFrame(compras_detalhadas)
+                if compras_cabecalho and compras_detalhadas:
+                    df_cabecalho = pd.DataFrame(compras_cabecalho)
+                    df_detalhadas = pd.DataFrame(compras_detalhadas)
 
-                if not df_cabecalho.empty and not df_detalhadas.empty:
-                    st.success(f"✅ Encontrados {len(df_detalhadas)} itens de compras no período selecionado!")
+                    if not df_cabecalho.empty and not df_detalhadas.empty:
+                        st.success(f"✅ Encontrados {len(df_detalhadas)} itens de compras no período selecionado!")
 
                     # ======================
                     # Filtro de Mercado
