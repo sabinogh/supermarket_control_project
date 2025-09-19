@@ -1,17 +1,35 @@
 import streamlit as st
 import pandas as pd
 from services import db_queries
+from services.supabase_client import (
+    require_authentication, 
+    get_user_email, 
+    get_user_id,
+    get_user_data
+)
 import datetime
 import plotly.express as px
+import plotly.graph_objects as go
 
-st.sidebar.title("Menu de Navegação")
-st.sidebar.markdown("""GSproject""")
+st.set_page_config(page_title="Análise de Compras", layout="wide")
+
+# Força autenticação
+require_authentication()
+
+# Configuração da sidebar
+st.sidebar.title("🛒 Menu de Navegação")
+st.sidebar.markdown("**GSproject**")
+st.sidebar.markdown("---")
+st.sidebar.markdown(f"👤 **{get_user_email()}**")
 
 st.title("📊 Análise de Compras")
+st.write("Visualize e analise suas compras pessoais de forma detalhada.")
 
-st.write("Selecione o período para analisar suas compras:")
+# Informação sobre privacidade
+st.info("🔒 **Privacidade:** Esta análise mostra apenas suas compras pessoais.")
 
 # Seleção de período
+st.subheader("📅 Selecione o Período")
 col1, col2 = st.columns(2)
 
 with col1:
@@ -29,159 +47,146 @@ with col2:
     )
 
 # Botão para buscar
-if st.button("🔍 Buscar Compras"):
+if st.button("🔍 Buscar Minhas Compras", type="primary"):
     if data_inicio > data_fim:
         st.error("❌ A data de início deve ser menor ou igual à data de fim.")
     else:
-        with st.spinner("Buscando compras..."):
-            # Busca dados para estatísticas (cabeçalho)
-            compras_cabecalho = db_queries.get_compras_cabecalho_periodo(data_inicio, data_fim)
-            # Chama a função RPC para obter os dados detalhados para a tabela
-            compras_detalhadas = db_queries.get_compras_detalhadas_rpc(data_inicio, data_fim)
+        with st.spinner("Buscando suas compras..."):
+            user_id = get_user_id()
+            # Busca compras do usuário no período especificado
+            try:
+                from services.supabase_client import supabase
+                response = supabase.table("compras_cabecalho").select("""
+                    id,
+                    data_compra,
+                    valor_total,
+                    descontos,
+                    valor_final_pago,
+                    mercado_id,
+                    mercados(nome, cidade),
+                    compras_itens(codigo, descricao, quantidade, unidade, valor_unitario, valor_total)
+                """).gte("data_compra", data_inicio.strftime('%Y-%m-%d')).lte("data_compra", data_fim.strftime('%Y-%m-%d')).execute()
 
-            if compras_cabecalho and compras_detalhadas:
-                df_cabecalho = pd.DataFrame(compras_cabecalho)
-                df_detalhadas = pd.DataFrame(compras_detalhadas)
-
-                if not df_cabecalho.empty and not df_detalhadas.empty:
-                    st.success(f"✅ Encontrados {len(df_detalhadas)} itens de compras no período selecionado!")
-
-                    # ======================
-                    # Filtro de Mercado
-                    # ======================
-                    mercados_disponiveis = df_detalhadas["mercado"].unique().tolist()
-                    mercados_selecionados = st.multiselect(
-                        "Filtrar por Mercado",
-                        options=mercados_disponiveis,
-                        default=mercados_disponiveis # Seleciona todos por padrão
-                    )
-
-                    if mercados_selecionados:
-                        df_detalhadas_filtrado = df_detalhadas[df_detalhadas["mercado"].isin(mercados_selecionados)]
-                        
-                        # Para filtrar o cabeçalho, precisamos dos IDs dos mercados correspondentes
-                        todos_mercados_db = db_queries.buscar_mercados()
-                        df_todos_mercados = pd.DataFrame(todos_mercados_db)
-                        
-                        mercado_ids_selecionados = df_todos_mercados[
-                            df_todos_mercados["nome"].isin(mercados_selecionados)
-                        ]["id"].tolist()
-
-                        df_cabecalho_filtrado = df_cabecalho[
-                            df_cabecalho["mercado_id"].isin(mercado_ids_selecionados)
-                        ]
-
-                        if not df_detalhadas_filtrado.empty:
-                            # ======================
-                            # Estatísticas
-                            # ======================
-                            st.subheader("📈 Estatísticas do Período")
-                            col1, col2, col3 = st.columns(3)
-
-                            total_gasto = df_detalhadas_filtrado["valor_total"].sum()
-                            with col1:
-                                st.metric("Total Gasto", f"R$ {total_gasto:.2f}")
-
-                            total_desconto = df_cabecalho_filtrado["descontos"].sum()
-                            with col2:
-                                st.metric("Total Desconto", f"R$ {total_desconto:.2f}")
-
-                            valor_final_pago = total_gasto - total_desconto
-                            with col3:
-                                st.metric("Valor Final Pago", f"R$ {valor_final_pago:.2f}")
-
-                            # ======================
-                            # Tabela de Compras
-                            # ======================
-                            st.subheader("📋 Compras do Período")
-
-                            df_visualizacao = df_detalhadas_filtrado.drop(columns=["desconto"], errors="ignore").rename(columns={
-                                "data_compra": "Data da Compra",
-                                "item": "Item",
-                                "descricao": "Descrição",
-                                "quantidade": "Quantidade",
-                                "unidade": "Unidade",
-                                "valor_unitario": "Valor Unitário",
-                                "valor_total": "Valor Total",
-                                "mercado": "Mercado",
-                                "cidade": "Cidade"
+                if response.data:
+                    compras_detalhadas = []
+                    for compra in response.data:
+                        mercado_nome = compra.get('mercados', {}).get('nome', 'N/A')
+                        mercado_cidade = compra.get('mercados', {}).get('cidade', 'N/A')
+                        itens = compra.get('compras_itens', [])
+                        for item in itens:
+                            compras_detalhadas.append({
+                                'data_compra': compra['data_compra'],
+                                'mercado': mercado_nome,
+                                'cidade': mercado_cidade,
+                                'codigo': item['codigo'],
+                                'descricao': item['descricao'],
+                                'quantidade': item['quantidade'],
+                                'unidade': item['unidade'],
+                                'valor_unitario': item['valor_unitario'],
+                                'valor_total': item['valor_total'],
+                                'compra_valor_total': compra['valor_total'],
+                                'compra_desconto': compra['descontos'],
+                                'compra_valor_final': compra['valor_final_pago']
                             })
+                    if compras_detalhadas:
+                        df_detalhadas = pd.DataFrame(compras_detalhadas)
+                        df_detalhadas['data_compra'] = pd.to_datetime(df_detalhadas['data_compra'])
+                        st.success(f"✅ Encontrados {len(df_detalhadas)} itens em suas compras no período selecionado!")
 
-                            st.dataframe(df_visualizacao, use_container_width=True)
-
-                            # ======================
-                            # Gráficos e Tendências
-                            # ======================
-                            st.subheader("📊 Análises Gráficas e Tendências")
-
-                            # 1. Evolução temporal dos gastos (por dia)
-                            df_temp = df_detalhadas_filtrado.groupby("data_compra").agg({
-                                "valor_total": "sum"
-                            }).reset_index()
-
-                            fig1 = px.line(df_temp, x="data_compra", y="valor_total",
-                                           title="📈 Evolução do Gasto Total (Diário)",
-                                           markers=True)
-                            st.plotly_chart(fig1, use_container_width=True)
-
-                            # 2. Evolução mensal dos gastos
-                            df_detalhadas_filtrado["mes"] = pd.to_datetime(df_detalhadas_filtrado["data_compra"]).dt.to_period("M").astype(str)
-                            df_mensal = df_detalhadas_filtrado.groupby("mes").agg({
-                                "valor_total": "sum"
-                            }).reset_index()
-
-                            fig1b = px.bar(df_mensal, x="mes", y="valor_total",
-                                           title="📆 Evolução do Gasto Mensal",
-                                           text_auto=True)
-                            st.plotly_chart(fig1b, use_container_width=True)
-
-                            # 3. Distribuição de gastos por mercado
-                            df_mercado = df_detalhadas_filtrado.groupby("mercado").agg({
-                                "valor_total": "sum"
-                            }).reset_index()
-
-                            fig2 = px.pie(df_mercado, values="valor_total", names="mercado",
-                                          title="🏪 Distribuição de Gastos por Mercado",
-                                          hole=0.4)
-                            st.plotly_chart(fig2, use_container_width=True)
-
-                            # 4. Produtos mais comprados (Top 10 por valor total)
-                            df_top_produtos = df_detalhadas_filtrado.groupby("descricao").agg({
-                                "valor_total": "sum"
-                            }).reset_index().sort_values(by="valor_total", ascending=False).head(10)
-
-                            fig3 = px.bar(df_top_produtos, x="descricao", y="valor_total",
-                                          title="🍎 Top 10 Produtos por Valor Gasto",
-                                          text_auto=True)
-                            fig3.update_layout(xaxis_tickangle=-45)
-                            st.plotly_chart(fig3, use_container_width=True)
-
-                            # 5. Tendência de descontos
-                            df_desc = df_cabecalho_filtrado.groupby("data_compra").agg({
-                                "descontos": "sum"
-                            }).reset_index()
-
-                            fig4 = px.line(df_desc, x="data_compra", y="descontos",
-                                           title="💸 Evolução dos Descontos no Período",
-                                           markers=True, line_shape="spline")
-                            st.plotly_chart(fig4, use_container_width=True)
-
-                            # ======================
-                            # Download dos Dados
-                            # ======================
-                            csv = df_visualizacao.to_csv(index=False, sep=";")
-                            st.download_button(
-                                label="📥 Download CSV",
-                                data=csv,
-                                file_name=f"compras_detalhadas_{data_inicio}_{data_fim}.csv",
-                                mime="text/csv"
-                            )
+                        # ======================
+                        # Filtro de Mercado
+                        # ======================
+                        st.subheader("🏪 Filtros")
+                        mercados_disponiveis = df_detalhadas["mercado"].unique().tolist()
+                        mercados_selecionados = st.multiselect(
+                            "Filtrar por Mercado",
+                            options=mercados_disponiveis,
+                            default=mercados_disponiveis
+                        )
+                        if mercados_selecionados:
+                            df_filtrado = df_detalhadas[df_detalhadas["mercado"].isin(mercados_selecionados)]
+                            if not df_filtrado.empty:
+                                st.subheader("📊 Resumo do Período")
+                                total_gasto = df_filtrado['compra_valor_final'].sum()
+                                total_compras = df_filtrado['data_compra'].nunique()
+                                total_itens = len(df_filtrado)
+                                ticket_medio = total_gasto / total_compras if total_compras > 0 else 0
+                                col1, col2, col3, col4 = st.columns(4)
+                                with col1:
+                                    st.metric("💰 Total Gasto", f"R$ {total_gasto:.2f}")
+                                with col2:
+                                    st.metric("🛒 Compras Realizadas", total_compras)
+                                with col3:
+                                    st.metric("📦 Itens Comprados", total_itens)
+                                with col4:
+                                    st.metric("🎯 Ticket Médio", f"R$ {ticket_medio:.2f}")
+                                st.subheader("📈 Análises Visuais")
+                                tab1, tab2, tab3 = st.tabs(["💰 Gastos por Mercado", "📅 Gastos ao Longo do Tempo", "🏆 Top Itens"])
+                                with tab1:
+                                    gastos_mercado = df_filtrado.groupby('mercado')['compra_valor_final'].sum().reset_index()
+                                    fig_mercado = px.pie(gastos_mercado, values='compra_valor_final', names='mercado', 
+                                                       title="Distribuição de Gastos por Mercado")
+                                    st.plotly_chart(fig_mercado, use_container_width=True)
+                                with tab2:
+                                    gastos_tempo = df_filtrado.groupby('data_compra')['compra_valor_final'].sum().reset_index()
+                                    fig_tempo = px.line(gastos_tempo, x='data_compra', y='compra_valor_final',
+                                                      title="Evolução dos Gastos ao Longo do Tempo",
+                                                      labels={'data_compra': 'Data', 'compra_valor_final': 'Valor (R$)'})
+                                    st.plotly_chart(fig_tempo, use_container_width=True)
+                                with tab3:
+                                    top_itens = df_filtrado.groupby('descricao')['valor_total'].sum().sort_values(ascending=False).head(10)
+                                    fig_itens = px.bar(x=top_itens.values, y=top_itens.index, orientation='h',
+                                                     title="Top 10 Itens por Valor Total Gasto",
+                                                     labels={'x': 'Valor Total (R$)', 'y': 'Item'})
+                                    st.plotly_chart(fig_itens, use_container_width=True)
+                                st.subheader("📋 Detalhes das Compras")
+                                df_visualizacao = df_filtrado.drop(columns=["compra_valor_total", "compra_desconto", "compra_valor_final"], errors="ignore").rename(columns={
+                                    "data_compra": "Data da Compra",
+                                    "codigo": "Código",
+                                    "descricao": "Descrição",
+                                    "quantidade": "Quantidade",
+                                    "unidade": "Unidade",
+                                    "valor_unitario": "Valor Unitário (R$)",
+                                    "valor_total": "Valor Total (R$)",
+                                    "mercado": "Mercado",
+                                    "cidade": "Cidade"
+                                })
+                                df_visualizacao["Valor Unitário (R$)"] = df_visualizacao["Valor Unitário (R$)"].apply(lambda x: f"R$ {x:.2f}")
+                                df_visualizacao["Valor Total (R$)"] = df_visualizacao["Valor Total (R$)"].apply(lambda x: f"R$ {x:.2f}")
+                                df_visualizacao["Data da Compra"] = pd.to_datetime(df_visualizacao["Data da Compra"]).dt.strftime('%d/%m/%Y')
+                                st.dataframe(df_visualizacao, use_container_width=True)
+                                csv = df_visualizacao.to_csv(index=False, sep=";")
+                                st.download_button(
+                                    label="📥 Download CSV",
+                                    data=csv,
+                                    file_name=f"minhas_compras_{data_inicio}_{data_fim}.csv",
+                                    mime="text/csv"
+                                )
+                            else:
+                                st.info("📭 Nenhuma compra encontrada para os mercados selecionados no período.")
                         else:
-                            st.info("📭 Nenhuma compra encontrada para os mercados selecionados no período.")
+                            st.info("Por favor, selecione ao menos um mercado para filtrar.")
                     else:
-                        st.info("Por favor, selecione ao menos um mercado para filtrar.")
-
+                        st.info("📭 Você ainda não possui compras registradas no período selecionado.")
+                        st.markdown("---")
+                        st.info("💡 **Dica:** Registre suas primeiras compras para começar a analisar seus gastos!")
+                        if st.button("📝 Ir para Registrar Compras"):
+                            st.switch_page("pages/1_Registrar_Compras.py")
                 else:
                     st.info("📭 Nenhuma compra encontrada no período selecionado.")
-            else:
-                st.error("❌ Erro ao buscar compras. Verifique a conexão com o banco de dados ou se há dados no período.")
+            except Exception as e:
+                if "schema cache" in str(e) or "not found" in str(e):
+                    st.info("📭 Nenhuma compra registrada para este usuário no período selecionado.")
+                else:
+                    st.error(f"❌ Erro ao buscar compras: {e}")
+
+# Rodapé
+st.markdown("---")
+st.markdown(
+    "<div style='text-align: center; color: #666; font-size: 0.9em;'>"
+    "🔒 Análise baseada apenas em suas compras pessoais | Protegido pela LGPD"
+    "</div>", 
+    unsafe_allow_html=True
+)
+
+
