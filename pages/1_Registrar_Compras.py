@@ -3,15 +3,13 @@ from services import db_queries
 from services.supabase_client import (
     require_authentication, 
     get_user_email, 
-    get_user_id,
-    insert_user_data
+    get_user_id
 )
 import pandas as pd
 import pdfplumber
 import re
 import datetime
 
-<<<<<<< HEAD
 st.set_page_config(page_title="Registrar Compras", layout="wide")
 
 # Força autenticação
@@ -22,10 +20,6 @@ st.sidebar.title("🛒 Menu de Navegação")
 st.sidebar.markdown("**GSproject**")
 st.sidebar.markdown("---")
 st.sidebar.markdown(f"👤 **{get_user_email()}**")
-=======
-st.sidebar.title("Menu de Navegação")
-st.sidebar.markdown("""GSproject""")
->>>>>>> b7f0087990b16c115f2cc72a871598ea6fc9993a
 
 st.title("📝 Registrar Compras")
 st.write("Aqui você pode registrar suas compras via upload de nota fiscal (PDF) ou manualmente.")
@@ -35,61 +29,35 @@ st.info("🔒 **Privacidade:** Suas compras são privadas e visíveis apenas par
 
 modo = st.radio("Escolha o modo de registro:", ["📄 Upload PDF", "✍️ Manual"])
 
-# Função para registrar a compra e seus itens com isolamento por usuário
 def registrar_compra_e_itens(mercado_id, data_compra, valor_total_cabecalho, descontos_cabecalho, valor_final_pago_cabecalho, itens_para_db):
     try:
-<<<<<<< HEAD
         user_id = get_user_id()
         if not user_id:
             st.error("❌ Erro: Usuário não autenticado.")
-=======
+            return False
+
         # Converte data_compra para string no formato 'YYYY-MM-DD'
         data_compra_str = data_compra.strftime('%Y-%m-%d')
 
         # 1. Inserir cabeçalho da compra
         compra_cabecalho_data = {
             "mercado_id": mercado_id,
-            "data_compra": data_compra_str, # Usa a data convertida
+            "data_compra": data_compra_str,
             "valor_total": valor_total_cabecalho,
             "descontos": descontos_cabecalho,
-            "valor_final_pago": valor_final_pago_cabecalho
+            "valor_final_pago": valor_final_pago_cabecalho,
+            "user_id": user_id
         }
         compra_registrada = db_queries.insert_compra(compra_cabecalho_data)
 
         if not compra_registrada:
             st.error("Erro ao registrar cabeçalho da compra.")
->>>>>>> b7f0087990b16c115f2cc72a871598ea6fc9993a
             return False
 
-        # Converte data_compra para string no formato 'YYYY-MM-DD'
-        data_compra_str = data_compra.strftime('%Y-%m-%d')
-
-        # 1. Inserir cabeçalho da compra com user_id
-        compra_cabecalho_data = {
-            "mercado_id": mercado_id,
-            "data_compra": data_compra_str,
-            "valor_total": valor_total_cabecalho,
-            "descontos": descontos_cabecalho,
-            "valor_final_pago": valor_final_pago_cabecalho,
-            "user_id": user_id  # Associa a compra ao usuário
-        }
-        
-        # Usa a nova função de inserção com isolamento por usuário
-        success = insert_user_data("compras", compra_cabecalho_data)
-        
-        if not success:
-            st.error("❌ Erro ao registrar cabeçalho da compra.")
-            return False
-
-        # Para obter o ID da compra recém-inserida, fazemos uma consulta
-        from services.supabase_client import supabase
-        response = supabase.table("compras").select("id").eq("user_id", user_id).order("created_at", desc=True).limit(1).execute()
-        
-        if not response.data:
+        compra_id = compra_registrada["id"] if isinstance(compra_registrada, dict) and "id" in compra_registrada else None
+        if not compra_id:
             st.error("❌ Erro ao obter ID da compra registrada.")
             return False
-            
-        compra_id = response.data[0]["id"]
 
         # 2. Inserir itens da compra
         total_itens = len(itens_para_db)
@@ -102,10 +70,10 @@ def registrar_compra_e_itens(mercado_id, data_compra, valor_total_cabecalho, des
             try:
                 item_data = {
                     "compra_id": compra_id,
-                    "user_id": user_id,  # Associa o item ao usuário
+                    "user_id": user_id,
                     **item
                 }
-                insert_user_data("itens", item_data)
+                db_queries.insert_item(item_data)
                 itens_registrados += 1
             except Exception as e:
                 st.warning(f"⚠️ Erro ao registrar item: {item['descricao']} - {e}")
