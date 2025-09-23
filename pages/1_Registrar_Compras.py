@@ -69,6 +69,7 @@ def registrar_compra_e_itens(mercado_id, data_compra, valor_total_cabecalho, des
             try:
                 item_data = {
                     "compra_id": compra_id,
+                    "user_id": user_id,
                     **item
                 }
                 db_queries.insert_item(item_data)

@@ -64,6 +64,7 @@ def insert_item(data):
     Espera um dicionário no formato:
     {
         "compra_id": int,
+        "user_id": str,  # Necessário para RLS
         "codigo": str,
         "descricao": str,
         "quantidade": float,
