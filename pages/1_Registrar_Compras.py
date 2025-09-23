@@ -45,8 +45,7 @@ def registrar_compra_e_itens(mercado_id, data_compra, valor_total_cabecalho, des
             "data_compra": data_compra_str,
             "valor_total": valor_total_cabecalho,
             "descontos": descontos_cabecalho,
-            "valor_final_pago": valor_final_pago_cabecalho,
-            "user_id": user_id
+            "valor_final_pago": valor_final_pago_cabecalho
         }
         compra_registrada = db_queries.insert_compra(compra_cabecalho_data)
 
@@ -70,7 +69,6 @@ def registrar_compra_e_itens(mercado_id, data_compra, valor_total_cabecalho, des
             try:
                 item_data = {
                     "compra_id": compra_id,
-                    "user_id": user_id,
                     **item
                 }
                 db_queries.insert_item(item_data)
