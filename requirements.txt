@@ -1,3 +1,4 @@
+pyzbar
 streamlit-webrtc
 av
 streamlit==1.48.1
