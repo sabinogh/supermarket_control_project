@@ -1,7 +1,3 @@
-import av
-from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
-from pyzbar.pyzbar import decode
-from PIL import Image
 import streamlit as st
 from services import db_queries
 from services.supabase_client import (
@@ -31,38 +27,8 @@ st.write("Aqui você pode registrar suas compras via upload de nota fiscal (PDF)
 # Informação sobre privacidade
 st.info("🔒 **Privacidade:** Suas compras são privadas e visíveis apenas para você.")
 
-modo = st.radio(
-    "Escolha o modo de registro:",
-    ["📄 Upload PDF", "✍️ Manual", "📱 QR Code (apenas celular)"]
-)
+modo = st.radio("Escolha o modo de registro:", ["📄 Upload PDF", "✍️ Manual"])
 
-if modo == "📱 QR Code (apenas celular)":
-    st.warning("⚠️ O modo QR Code só funciona em dispositivos móveis (celular/tablet) com acesso à câmera.")
-    st.info("Em breve: Aponte a câmera para o QR Code da nota fiscal para registrar sua compra automaticamente.")
-
-    class QRCodeReader(VideoTransformerBase):
-        def __init__(self):
-            self.last_code = None
-
-        def transform(self, frame):
-            img = frame.to_image()
-            decoded_objs = decode(img)
-            for obj in decoded_objs:
-                self.last_code = obj.data.decode("utf-8")
-            return img
-
-    ctx = webrtc_streamer(
-        key="qr-code",
-        video_transformer_factory=QRCodeReader,
-        media_stream_constraints={"video": True, "audio": False},
-        async_transform=True,
-    )
-
-    if ctx and ctx.video_transformer:
-        code = ctx.video_transformer.last_code
-        if code:
-            st.success(f"QR Code detectado: {code}")
-            st.info("Aqui você pode implementar a lógica para buscar os dados da nota fiscal usando a chave lida.")
 
 def registrar_compra_e_itens(mercado_id, data_compra, valor_total_cabecalho, descontos_cabecalho, valor_final_pago_cabecalho, itens_para_db):
     try:
