@@ -10,150 +10,91 @@ import pandas as pd
 
 st.set_page_config(page_title="Gerenciar Mercados", layout="wide")
 
-# Força autenticação
 require_authentication()
 
-# Configuração da sidebar
-st.sidebar.title("🛒 Menu de Navegação")
-st.sidebar.markdown("**GSproject**")
-st.sidebar.markdown("---")
-st.sidebar.markdown(f"👤 **{get_user_email()}**")
-
-st.title("🏪 Gerenciar Mercados")
-st.write("Visualize todos os mercados da comunidade e adicione novos estabelecimentos.")
-
-# Informação sobre funcionalidade comunitária
-st.info("🤝 **Funcionalidade Comunitária:** Os mercados são compartilhados entre todos os usuários para benefício da comunidade.")
-
-# Tabs para diferentes funcionalidades
-tab1, tab2 = st.tabs(["🏬 Ver Mercados", "➕ Adicionar Mercado"])
+# Definir tabs corretamente
+tab1, tab2 = st.tabs(["Ver Mercados", "Adicionar Mercado"])
 
 with tab1:
-    st.subheader("🏬 Mercados Disponíveis")
-    
-    # Buscar todos os mercados
+    st.subheader("🏪 Mercados Cadastrados")
+    st.write("Veja todos os mercados disponíveis para registrar suas compras.")
     try:
-        mercados = db_queries.buscar_mercados()
-        
+        mercados = supabase.table("mercados").select("*").order("nome", desc=False).execute().data
         if mercados:
             df_mercados = pd.DataFrame(mercados)
-            
-            # Buscar informações de quem adicionou cada mercado (se disponível)
-            try:
-                # Query para buscar mercados com informação do usuário que adicionou
-                response = supabase.table("mercados").select("""
-                    id,
-                    nome,
-                    cidade,
-                    created_at
-                """).execute()
-                
-                if response.data:
-                    df_mercados_completo = pd.DataFrame(response.data)
-                    # Formatar data
-                    df_mercados_completo['created_at'] = pd.to_datetime(df_mercados_completo['created_at']).dt.strftime('%Y/%m/%d')
-                    # Renomear colunas para exibição
-                    df_display = df_mercados_completo.rename(columns={
-                        "nome": "Nome",
-                        "cidade": "Cidade",
-                        "created_at": "Adicionado em"
-                    })
-                    # Remover colunas técnicas
-                    df_display = df_display.drop(columns=["id", "added_by_user_id"], errors="ignore")
-                    st.success(f"✅ Encontrados {len(df_display)} mercados cadastrados na comunidade!")
-                    # Filtros
-                    cidades_disponiveis = ["Todas"] + sorted(df_display["Cidade"].unique().tolist())
-                    cidade_filtro = st.selectbox("🏙️ Filtrar por Cidade", cidades_disponiveis)
-                    # Aplicar filtro
-                    df_filtrado = df_display.copy()
-                    if cidade_filtro != "Todas":
-                        df_filtrado = df_filtrado[df_filtrado["Cidade"] == cidade_filtro]
-                    if not df_filtrado.empty:
-                        st.dataframe(df_filtrado, use_container_width=True)
-                        # Estatísticas
-                        st.markdown("---")
-                        st.metric("🏪 Total de Mercados", len(df_filtrado))
-                    else:
-                        st.info("📭 Nenhum mercado encontrado com os filtros selecionados.")
-                
-                else:
-                    # Fallback para dados básicos
-                    df_display = df_mercados.rename(columns={
-                        "nome": "Nome",
-                        "cidade": "Cidade"
-                    })
-                    st.dataframe(df_display, use_container_width=True)
-                    
-            except Exception as e:
-                st.warning(f"⚠️ Erro ao buscar detalhes dos mercados: {e}")
-                # Exibir dados básicos
-                df_display = df_mercados.rename(columns={
-                    "nome": "Nome",
-                    "cidade": "Cidade"
-                })
-                st.dataframe(df_display, use_container_width=True)
+            # Exibe os campos concatenados
+            df_mercados["Mercado"] = (
+                df_mercados["nome"] + ", " +
+                df_mercados["cidade"] + ", " +
+                df_mercados["estado"] + ", " +
+                df_mercados["rua"] + ", " +
+                df_mercados["numero"] + ", " +
+                df_mercados["cep"]
+            )
+            st.dataframe(df_mercados[["Mercado", "cnpj"]], use_container_width=True)
         else:
-            st.info("📭 Nenhum mercado cadastrado ainda. Seja o primeiro a adicionar um mercado!")
-            
+            st.info("Nenhum mercado cadastrado ainda.")
     except Exception as e:
-        st.error(f"❌ Erro ao buscar mercados: {e}")
+        st.error(f"Erro ao buscar mercados: {e}")
 
 with tab2:
     st.subheader("➕ Adicionar Novo Mercado")
     st.write("Contribua com a comunidade adicionando um novo mercado!")
-    
     with st.form("add_mercado_form"):
         col1, col2 = st.columns(2)
-        
         with col1:
-            nome = st.text_input("🏪 Nome do Mercado *", placeholder="Ex: Supermercado ABC")
-            cidade = st.text_input("🏙️ Cidade *", placeholder="Ex: São Paulo")
-        
+            nome = st.text_input("🏪 Nome do Mercado *", placeholder="Ex: Supermercado ABC", key="nome_mercado_form")
+            cidade = st.text_input("🏙️ Cidade *", placeholder="Ex: São Paulo", key="cidade_mercado_form")
         with col2:
-            # Estado removido pois não existe na tabela
-            telefone = st.text_input("📞 Telefone", placeholder="Ex: (11) 1234-5678")
-        
-        st.markdown("**Campos marcados com * são obrigatórios*")
-        
+            cnpj = st.text_input("🔢 CNPJ *", placeholder="Ex: 12.345.678/0001-99", key="cnpj_mercado_form")
+            rua = st.text_input("🏠 Rua *", placeholder="Ex: Av. Brasil", key="rua_mercado_form")
+            numero = st.text_input("# Número *", placeholder="Ex: 123", key="numero_mercado_form")
+            cep = st.text_input("📮 CEP *", placeholder="Ex: 12345-678", key="cep_mercado_form")
+            estados_brasil = [
+                "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
+            ]
+            estado = st.selectbox("🌎 Estado *", estados_brasil, key="estado_mercado_form")
+        st.markdown("**Todos os campos são obrigatórios*")
         submitted = st.form_submit_button("🚀 Adicionar Mercado", type="primary")
-        
         if submitted:
             # Validações
-            if not nome or not cidade:
+            if not (nome and cidade and cnpj and rua and numero and cep and estado):
                 st.error("❌ Por favor, preencha todos os campos obrigatórios.")
             elif len(nome) < 3:
                 st.error("❌ O nome do mercado deve ter pelo menos 3 caracteres.")
             elif len(cidade) < 2:
                 st.error("❌ O nome da cidade deve ter pelo menos 2 caracteres.")
+            elif len(cnpj) < 14:
+                st.error("❌ O CNPJ deve ter pelo menos 14 dígitos.")
+            elif len(cep) < 8:
+                st.error("❌ O CEP deve ter pelo menos 8 dígitos.")
             else:
                 try:
                     user_id = get_user_id()
-                    # Dados do mercado
                     mercado_data = {
                         "nome": nome.strip(),
                         "cidade": cidade.strip(),
-                        "telefone": telefone.strip() if telefone else None,
+                        "cnpj": cnpj.strip(),
+                        "rua": rua.strip(),
+                        "numero": numero.strip(),
+                        "cep": cep.strip(),
+                        "estado": estado,
                         "added_by_user_id": user_id
                     }
-                    
-                    # Verificar se mercado já existe
                     existing = supabase.table("mercados").select("id").eq("nome", nome.strip()).eq("cidade", cidade.strip()).execute()
-                    
                     if existing.data:
                         st.warning("⚠️ Já existe um mercado com este nome nesta cidade.")
                     else:
-                        # Inserir mercado
                         response = supabase.table("mercados").insert(mercado_data).execute()
-                        
                         if response.data:
                             st.success("✅ Mercado adicionado com sucesso!")
                             st.balloons()
                             st.info("🔄 Recarregue a página para ver o mercado na lista.")
                         else:
                             st.error("❌ Erro ao adicionar mercado. Tente novamente.")
-                            
                 except Exception as e:
                     st.error(f"❌ Erro ao adicionar mercado: {e}")
+
 
 # Informações sobre contribuição comunitária
 st.markdown("---")
