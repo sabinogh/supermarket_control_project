@@ -71,7 +71,6 @@ if st.button("🔍 Buscar Minhas Compras", type="primary"):
                         # Para filtrar o cabeçalho, precisamos dos IDs dos mercados correspondentes
                         todos_mercados_db = db_queries.buscar_mercados()
                         df_todos_mercados = pd.DataFrame(todos_mercados_db)
-                        
                         mercado_ids_selecionados = df_todos_mercados[
                             df_todos_mercados["nome"].isin(mercados_selecionados)
                         ]["id"].tolist()
@@ -81,29 +80,8 @@ if st.button("🔍 Buscar Minhas Compras", type="primary"):
                         ]
 
                         if not df_detalhadas_filtrado.empty:
-                            # ======================
-                            # Estatísticas
-                            # ======================
-                            st.subheader("📈 Estatísticas do Período")
-                            col1, col2, col3 = st.columns(3)
-
-                            total_gasto = df_detalhadas_filtrado["valor_total"].sum()
-                            with col1:
-                                st.metric("Total Gasto", f"R$ {total_gasto:.2f}")
-
-                            total_desconto = df_cabecalho_filtrado["descontos"].sum()
-                            with col2:
-                                st.metric("Total Desconto", f"R$ {total_desconto:.2f}")
-
-                            valor_final_pago = total_gasto - total_desconto
-                            with col3:
-                                st.metric("Valor Final Pago", f"R$ {valor_final_pago:.2f}")
-
-                            # ======================
-                            # Tabela de Compras
-                            # ======================
-                            st.subheader("📋 Compras do Período")
-
+                            # Tabela de visualização dos itens do período selecionado
+                            st.subheader("📋 Itens do Período Selecionado")
                             df_visualizacao = df_detalhadas_filtrado.drop(columns=["desconto"], errors="ignore").rename(columns={
                                 "data_compra": "Data da Compra",
                                 "item": "Item",
@@ -115,75 +93,144 @@ if st.button("🔍 Buscar Minhas Compras", type="primary"):
                                 "mercado": "Mercado",
                                 "cidade": "Cidade"
                             })
-
                             st.dataframe(df_visualizacao, use_container_width=True)
 
-                            # ======================
-                            # Gráficos e Tendências
-                            # ======================
-                            st.subheader("📊 Análises Gráficas e Tendências")
+                            # ========== DASHBOARD LAYOUT ========== #
+                            import numpy as np
+                            # Gráficos 1 e 2 lado a lado
+                            col_g1, col_g2 = st.columns(2)
+                            # Gráfico 1 — Itens com Maior Aumento de Preço
+                            with col_g1:
+                                st.subheader("Gráfico 1 — Itens com Maior Aumento de Preço")
+                                if "codigo" in df_detalhadas_filtrado.columns:
+                                    group_cols = ["codigo", "descricao"]
+                                else:
+                                    group_cols = ["descricao"]
+                                df_precos = df_detalhadas_filtrado.groupby(group_cols).agg(
+                                    media=("valor_unitario", "mean"),
+                                    maximo=("valor_unitario", "max"),
+                                    minimo=("valor_unitario", "min"),
+                                    count=("valor_unitario", "count")
+                                ).reset_index()
+                                df_precos["var_max"] = ((df_precos["maximo"] - df_precos["media"]) / df_precos["media"]) * 100
+                                df_precos["var_min"] = ((df_precos["minimo"] - df_precos["media"]) / df_precos["media"]) * 100
+                                df_aumento = df_precos[(df_precos["count"] > 1) & (df_precos["var_max"] > 0)]
+                                df_aumento = df_aumento.sort_values("var_max", ascending=False).head(10)
+                                fig_aumento = px.bar(
+                                    df_aumento,
+                                    x="var_max",
+                                    y="descricao",
+                                    orientation="h",
+                                    labels={"var_max": "Variação (%)", "descricao": "Item"},
+                                    title="Itens com Maior Aumento de Preço"
+                                )
+                                st.plotly_chart(fig_aumento, use_container_width=True, height=350)
+                                # Tabela do gráfico 1
+                                st.dataframe(
+                                    df_aumento[["descricao", "media", "maximo", "minimo", "var_max", "var_min"]]
+                                    .rename(columns={
+                                        "descricao": "Descrição", "media": "Média", "maximo": "Máx.", "minimo": "Mín.",
+                                        "var_max": "Dif. Máx.(%)", "var_min": "Dif. Min.(%)"
+                                    }),
+                                    use_container_width=True,
+                                    height=220
+                                )
+                            # Gráfico 2 — Itens com Maior Redução de Preço
+                            with col_g2:
+                                st.subheader("Gráfico 2 — Itens com Maior Redução de Preço")
+                                df_reducao = df_precos[(df_precos["count"] > 1) & (df_precos["var_min"] < 0)]
+                                df_reducao = df_reducao.sort_values("var_min").head(10)
+                                fig_reducao = px.bar(
+                                    df_reducao,
+                                    x="var_min",
+                                    y="descricao",
+                                    orientation="h",
+                                    labels={"var_min": "Variação (%)", "descricao": "Item"},
+                                    title="Itens com Maior Redução de Preço"
+                                )
+                                st.plotly_chart(fig_reducao, use_container_width=True, height=350)
+                                # Tabela do gráfico 2
+                                st.dataframe(
+                                    df_reducao[["descricao", "media", "maximo", "minimo", "var_max", "var_min"]]
+                                    .rename(columns={
+                                        "descricao": "Descrição", "media": "Média", "maximo": "Máx.", "minimo": "Mín.",
+                                        "var_max": "Dif. Máx.(%)", "var_min": "Dif. Min.(%)"
+                                    }),
+                                    use_container_width=True,
+                                    height=220
+                                )
 
-                            # 1. Evolução temporal dos gastos (por dia)
-                            df_temp = df_detalhadas_filtrado.groupby("data_compra").agg({
-                                "valor_total": "sum"
-                            }).reset_index()
+                            # Gráficos 3 e 4 lado a lado
+                            col_g3, col_g4 = st.columns(2)
+                            with col_g3:
+                                st.subheader("Gráfico 3 — Gasto Mensal")
+                                df_cabecalho_filtrado["mes"] = pd.to_datetime(df_cabecalho_filtrado["data_compra"]).dt.strftime("%B/%Y")
+                                df_cabecalho_filtrado = df_cabecalho_filtrado.sort_values("data_compra")
+                                df_gasto_mensal = df_cabecalho_filtrado.groupby("mes", sort=False)["valor_final_pago"].sum().reset_index()
+                                df_gasto_mensal["mes_ordem"] = pd.to_datetime(df_gasto_mensal["mes"], format="%B/%Y")
+                                df_gasto_mensal = df_gasto_mensal.sort_values("mes_ordem")
+                                fig_gasto_mensal = px.bar(
+                                    df_gasto_mensal,
+                                    x="mes",
+                                    y="valor_final_pago",
+                                    labels={"mes": "Mês", "valor_final_pago": "Valor total gasto"},
+                                    title="Gasto Mensal"
+                                )
+                                if len(df_gasto_mensal) >= 3:
+                                    media_mensal = df_gasto_mensal["valor_final_pago"].mean()
+                                    fig_gasto_mensal.add_hline(y=media_mensal, line_dash="dash", line_color="red", annotation_text="Média mensal", annotation_position="top left")
+                                st.plotly_chart(fig_gasto_mensal, use_container_width=True, height=350)
+                            with col_g4:
+                                st.subheader("Gráfico 4 — Tendência de Gastos (Regressão Linear)")
+                                if not df_gasto_mensal.empty:
+                                    meses_labels = df_gasto_mensal["mes"].tolist()
+                                    df_gasto_mensal["mes_num"] = range(1, len(df_gasto_mensal) + 1)
+                                    x = df_gasto_mensal["mes_num"].values.reshape(-1, 1)
+                                    y = df_gasto_mensal["valor_final_pago"].values
+                                    from sklearn.linear_model import LinearRegression
+                                    model = LinearRegression()
+                                    model.fit(x, y)
+                                    x_pred = np.arange(1, len(df_gasto_mensal) + 7).reshape(-1, 1)
+                                    y_pred = model.predict(x_pred)
+                                    import calendar
+                                    from datetime import datetime
+                                    ult_mes = pd.to_datetime(df_gasto_mensal["mes"].iloc[-1], format="%B/%Y")
+                                    proj_labels = []
+                                    for i in range(1, 7):
+                                        next_month = ult_mes + pd.DateOffset(months=i)
+                                        proj_labels.append(next_month.strftime("%B/%Y"))
+                                    x_labels = meses_labels + proj_labels
+                                    fig_tend = px.line(
+                                        x=x_labels[:len(y)],
+                                        y=y,
+                                        labels={"x": "Mês", "y": "Valor total gasto"},
+                                        title="Tendência de Gastos (Regressão Linear)"
+                                    )
+                                    fig_tend.add_scatter(
+                                        x=x_labels[len(y):],
+                                        y=y_pred[len(y):],
+                                        mode="lines",
+                                        line=dict(dash="dot", color="orange"),
+                                        name="Projeção 6 meses"
+                                    )
+                                    st.plotly_chart(fig_tend, use_container_width=True, height=350)
 
-                            fig1 = px.line(df_temp, x="data_compra", y="valor_total",
-                                           title="📈 Evolução do Gasto Total (Diário)",
-                                           markers=True)
-                            st.plotly_chart(fig1, use_container_width=True)
-
-                            # 2. Evolução mensal dos gastos
-                            df_detalhadas_filtrado["mes"] = pd.to_datetime(df_detalhadas_filtrado["data_compra"]).dt.to_period("M").astype(str)
-                            df_mensal = df_detalhadas_filtrado.groupby("mes").agg({
-                                "valor_total": "sum"
-                            }).reset_index()
-
-                            fig1b = px.bar(df_mensal, x="mes", y="valor_total",
-                                           title="📆 Evolução do Gasto Mensal",
-                                           text_auto=True)
-                            st.plotly_chart(fig1b, use_container_width=True)
-
-                            # 3. Distribuição de gastos por mercado
-                            df_mercado = df_detalhadas_filtrado.groupby("mercado").agg({
-                                "valor_total": "sum"
-                            }).reset_index()
-
-                            fig2 = px.pie(df_mercado, values="valor_total", names="mercado",
-                                          title="🏪 Distribuição de Gastos por Mercado",
-                                          hole=0.4)
-                            st.plotly_chart(fig2, use_container_width=True)
-
-                            # 4. Produtos mais comprados (Top 10 por valor total)
-                            df_top_produtos = df_detalhadas_filtrado.groupby("descricao").agg({
-                                "valor_total": "sum"
-                            }).reset_index().sort_values(by="valor_total", ascending=False).head(10)
-
-                            fig3 = px.bar(df_top_produtos, x="descricao", y="valor_total",
-                                          title="🍎 Top 10 Produtos por Valor Gasto",
-                                          text_auto=True)
-                            fig3.update_layout(xaxis_tickangle=-45)
-                            st.plotly_chart(fig3, use_container_width=True)
-
-                            # 5. Tendência de descontos
-                            df_desc = df_cabecalho_filtrado.groupby("data_compra").agg({
-                                "descontos": "sum"
-                            }).reset_index()
-
-                            fig4 = px.line(df_desc, x="data_compra", y="descontos",
-                                           title="💸 Evolução dos Descontos no Período",
-                                           markers=True, line_shape="spline")
-                            st.plotly_chart(fig4, use_container_width=True)
-
-                            # ======================
-                            # Download dos Dados
-                            # ======================
-                            csv = df_visualizacao.to_csv(index=False, sep=";")
-                            st.download_button(
-                                label="📥 Download CSV",
-                                data=csv,
-                                file_name=f"compras_detalhadas_{data_inicio}_{data_fim}.csv",
-                                mime="text/csv"
+                            # =====================
+                            # ANÁLISE FINAL: Preço médio de todos os itens registrados no período filtrado
+                            # =====================
+                            st.subheader("Análise Final — Preço Médio dos Itens no Período")
+                            df_media_itens = df_detalhadas_filtrado.groupby("descricao").agg(
+                                media=("valor_unitario", "mean"),
+                                maximo=("valor_unitario", "max"),
+                                minimo=("valor_unitario", "min"),
+                                qtd_registro=("valor_unitario", "count")
+                            ).reset_index()
+                            df_media_itens = df_media_itens.rename(columns={
+                                "descricao": "Descrição", "media": "Média", "maximo": "Máx.", "minimo": "Mín.", "qtd_registro": "Qtd. Registro"
+                            })
+                            st.dataframe(
+                                df_media_itens[["Descrição", "Média", "Máx.", "Mín.", "Qtd. Registro"]],
+                                use_container_width=True
                             )
                         else:
                             st.info("📭 Nenhuma compra encontrada para os mercados selecionados no período.")
