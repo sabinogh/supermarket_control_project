@@ -3,9 +3,8 @@ from services.supabase_client import supabase
 
 st.set_page_config(page_title="Página Inicial", layout="wide")
 
-# Adicionando logo e texto na barra lateral
-st.sidebar.image("https://streamlit.io/images/brand/streamlit-logo-light.png", use_container_width=True)
-st.sidebar.markdown("## GSproject")
+st.sidebar.title("Menu de Navegação")
+st.sidebar.markdown("GSproject")
 
 # Verifica o estado de autenticação
 user = supabase.auth.get_user()
@@ -14,7 +13,7 @@ if not user:
     st.warning("Você precisa fazer login para acessar o aplicativo.")
     st.stop() # Para a execução do script se não estiver logado
 
-st.title("📊 Controle de Gastos no Mercado")
+st.title("📊 Controle de Gastos - Mercado")
 st.write(f"Bem-vindo, {user.user.email}! Este é o seu painel de controle.")
 
 st.markdown("""

@@ -167,13 +167,12 @@ with st.expander("📋 Informações sobre Privacidade (LGPD)"):
     
     Em conformidade com a Lei Geral de Proteção de Dados (LGPD), informamos que:
     
-    - ✅ Seus dados pessoais são coletados apenas para o funcionamento do aplicativo
     - ✅ Suas informações de compras são privadas e visíveis apenas para você
     - ✅ Não compartilhamos seus dados com terceiros
     - ✅ Você pode solicitar a exclusão de seus dados a qualquer momento
-    - ✅ Os dados de mercados são compartilhados para benefício da comunidade
+    - ✅ Os dados de registro de mercados são compartilhados para benefício da comunidade
     
-    **📧 Contato:** Para questões sobre privacidade, entre em contato conosco.
+    **📧 Contato:** Para questões sobre privacidade, entre em contato conosco: gh.sabino@gmail.com
     """)
 
 # Rodapé

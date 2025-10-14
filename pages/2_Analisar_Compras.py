@@ -10,8 +10,12 @@ from services.supabase_client import (
 import datetime
 import plotly.express as px
 
+
 st.sidebar.title("Menu de Navegação")
-st.sidebar.markdown("""GSproject""")
+st.sidebar.markdown("GSproject")
+user_email = get_user_email()
+if user_email:
+    st.sidebar.markdown(f"👤 **{user_email}**")
 
 st.title("📊 Análise de Compras")
 st.write("Visualize e analise suas compras pessoais de forma detalhada.")
@@ -59,22 +63,24 @@ if st.button("🔍 Buscar Minhas Compras", type="primary"):
                     # Filtro de Mercado
                     # ======================
                     mercados_disponiveis = df_detalhadas["mercado"].unique().tolist()
+                    # Guardar seleção no session_state para não resetar
+                    if "mercados_selecionados" not in st.session_state:
+                        st.session_state["mercados_selecionados"] = mercados_disponiveis
                     mercados_selecionados = st.multiselect(
                         "Filtrar por Mercado",
                         options=mercados_disponiveis,
-                        default=mercados_disponiveis # Seleciona todos por padrão
+                        default=st.session_state["mercados_selecionados"]
                     )
+                    st.session_state["mercados_selecionados"] = mercados_selecionados
 
                     if mercados_selecionados:
                         df_detalhadas_filtrado = df_detalhadas[df_detalhadas["mercado"].isin(mercados_selecionados)]
-                        
                         # Para filtrar o cabeçalho, precisamos dos IDs dos mercados correspondentes
                         todos_mercados_db = db_queries.buscar_mercados()
                         df_todos_mercados = pd.DataFrame(todos_mercados_db)
                         mercado_ids_selecionados = df_todos_mercados[
                             df_todos_mercados["nome"].isin(mercados_selecionados)
                         ]["id"].tolist()
-
                         df_cabecalho_filtrado = df_cabecalho[
                             df_cabecalho["mercado_id"].isin(mercado_ids_selecionados)
                         ]
@@ -82,9 +88,8 @@ if st.button("🔍 Buscar Minhas Compras", type="primary"):
                         if not df_detalhadas_filtrado.empty:
                             # Tabela de visualização dos itens do período selecionado
                             st.subheader("📋 Itens do Período Selecionado")
-                            df_visualizacao = df_detalhadas_filtrado.drop(columns=["desconto"], errors="ignore").rename(columns={
+                            df_visualizacao = df_detalhadas_filtrado.drop(columns=["desconto", "item"], errors="ignore").rename(columns={
                                 "data_compra": "Data da Compra",
-                                "item": "Item",
                                 "descricao": "Descrição",
                                 "quantidade": "Quantidade",
                                 "unidade": "Unidade",
@@ -99,9 +104,9 @@ if st.button("🔍 Buscar Minhas Compras", type="primary"):
                             import numpy as np
                             # Gráficos 1 e 2 lado a lado
                             col_g1, col_g2 = st.columns(2)
-                            # Gráfico 1 — Itens com Maior Aumento de Preço
+                            # Gráfico: Itens com Maior Aumento de Preço
                             with col_g1:
-                                st.subheader("Gráfico 1 — Itens com Maior Aumento de Preço")
+                                st.subheader("Itens com Maior Aumento de Preço")
                                 if "codigo" in df_detalhadas_filtrado.columns:
                                     group_cols = ["codigo", "descricao"]
                                 else:
@@ -121,23 +126,12 @@ if st.button("🔍 Buscar Minhas Compras", type="primary"):
                                     x="var_max",
                                     y="descricao",
                                     orientation="h",
-                                    labels={"var_max": "Variação (%)", "descricao": "Item"},
-                                    title="Itens com Maior Aumento de Preço"
+                                    labels={"var_max": "Variação (%)", "descricao": "Item"}
                                 )
                                 st.plotly_chart(fig_aumento, use_container_width=True, height=350)
-                                # Tabela do gráfico 1
-                                st.dataframe(
-                                    df_aumento[["descricao", "media", "maximo", "minimo", "var_max", "var_min"]]
-                                    .rename(columns={
-                                        "descricao": "Descrição", "media": "Média", "maximo": "Máx.", "minimo": "Mín.",
-                                        "var_max": "Dif. Máx.(%)", "var_min": "Dif. Min.(%)"
-                                    }),
-                                    use_container_width=True,
-                                    height=220
-                                )
-                            # Gráfico 2 — Itens com Maior Redução de Preço
+                            # Gráfico: Itens com Maior Redução de Preço
                             with col_g2:
-                                st.subheader("Gráfico 2 — Itens com Maior Redução de Preço")
+                                st.subheader("Itens com Maior Redução de Preço")
                                 df_reducao = df_precos[(df_precos["count"] > 1) & (df_precos["var_min"] < 0)]
                                 df_reducao = df_reducao.sort_values("var_min").head(10)
                                 fig_reducao = px.bar(
@@ -145,25 +139,14 @@ if st.button("🔍 Buscar Minhas Compras", type="primary"):
                                     x="var_min",
                                     y="descricao",
                                     orientation="h",
-                                    labels={"var_min": "Variação (%)", "descricao": "Item"},
-                                    title="Itens com Maior Redução de Preço"
+                                    labels={"var_min": "Variação (%)", "descricao": "Item"}
                                 )
                                 st.plotly_chart(fig_reducao, use_container_width=True, height=350)
-                                # Tabela do gráfico 2
-                                st.dataframe(
-                                    df_reducao[["descricao", "media", "maximo", "minimo", "var_max", "var_min"]]
-                                    .rename(columns={
-                                        "descricao": "Descrição", "media": "Média", "maximo": "Máx.", "minimo": "Mín.",
-                                        "var_max": "Dif. Máx.(%)", "var_min": "Dif. Min.(%)"
-                                    }),
-                                    use_container_width=True,
-                                    height=220
-                                )
 
                             # Gráficos 3 e 4 lado a lado
                             col_g3, col_g4 = st.columns(2)
                             with col_g3:
-                                st.subheader("Gráfico 3 — Gasto Mensal")
+                                st.subheader("Gasto Mensal")
                                 df_cabecalho_filtrado["mes"] = pd.to_datetime(df_cabecalho_filtrado["data_compra"]).dt.strftime("%B/%Y")
                                 df_cabecalho_filtrado = df_cabecalho_filtrado.sort_values("data_compra")
                                 df_gasto_mensal = df_cabecalho_filtrado.groupby("mes", sort=False)["valor_final_pago"].sum().reset_index()
@@ -173,15 +156,14 @@ if st.button("🔍 Buscar Minhas Compras", type="primary"):
                                     df_gasto_mensal,
                                     x="mes",
                                     y="valor_final_pago",
-                                    labels={"mes": "Mês", "valor_final_pago": "Valor total gasto"},
-                                    title="Gasto Mensal"
+                                    labels={"mes": "Mês", "valor_final_pago": "Valor total gasto"}
                                 )
                                 if len(df_gasto_mensal) >= 3:
                                     media_mensal = df_gasto_mensal["valor_final_pago"].mean()
                                     fig_gasto_mensal.add_hline(y=media_mensal, line_dash="dash", line_color="red", annotation_text="Média mensal", annotation_position="top left")
                                 st.plotly_chart(fig_gasto_mensal, use_container_width=True, height=350)
                             with col_g4:
-                                st.subheader("Gráfico 4 — Tendência de Gastos (Regressão Linear)")
+                                st.subheader("Tendência de Gastos (Regressão Linear)")
                                 if not df_gasto_mensal.empty:
                                     meses_labels = df_gasto_mensal["mes"].tolist()
                                     df_gasto_mensal["mes_num"] = range(1, len(df_gasto_mensal) + 1)
@@ -203,8 +185,7 @@ if st.button("🔍 Buscar Minhas Compras", type="primary"):
                                     fig_tend = px.line(
                                         x=x_labels[:len(y)],
                                         y=y,
-                                        labels={"x": "Mês", "y": "Valor total gasto"},
-                                        title="Tendência de Gastos (Regressão Linear)"
+                                        labels={"x": "Mês", "y": "Valor total gasto"}
                                     )
                                     fig_tend.add_scatter(
                                         x=x_labels[len(y):],
@@ -216,9 +197,9 @@ if st.button("🔍 Buscar Minhas Compras", type="primary"):
                                     st.plotly_chart(fig_tend, use_container_width=True, height=350)
 
                             # =====================
-                            # ANÁLISE FINAL: Preço médio de todos os itens registrados no período filtrado
+                            # ANÁLISE FINAL: Preço médio dos itens no período selecionado
                             # =====================
-                            st.subheader("Análise Final — Preço Médio dos Itens no Período")
+                            st.subheader("Preço Médio dos Itens no Período Selecionado")
                             df_media_itens = df_detalhadas_filtrado.groupby("descricao").agg(
                                 media=("valor_unitario", "mean"),
                                 maximo=("valor_unitario", "max"),

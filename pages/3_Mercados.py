@@ -105,14 +105,12 @@ with st.expander("ℹ️ Sobre a Funcionalidade Comunitária"):
     - ✅ **Compartilhamento:** Todos os mercados são visíveis para todos os usuários
     - ✅ **Contribuição:** Qualquer usuário pode adicionar novos mercados
     - ✅ **Benefício Mútuo:** Quanto mais mercados cadastrados, melhor para toda a comunidade
-    - ✅ **Rastreabilidade:** O sistema registra quem adicionou cada mercado
     - ✅ **Privacidade:** Apenas os mercados são compartilhados, suas compras permanecem privadas
     
     **📝 Dicas para adicionar mercados:**
     - Verifique se o mercado já não está cadastrado
     - Use nomes completos e oficiais dos estabelecimentos
     - Inclua endereços completos para facilitar a localização
-    - Adicione telefone quando disponível para contato
     """)
 
 # Rodapé
