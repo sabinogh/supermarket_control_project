@@ -60,9 +60,12 @@ if st.button("🔍 Buscar Minhas Compras", type="primary"):
                         st.success(f"✅ Encontrados {len(df_detalhadas)} itens de compras no período selecionado!")
 
                     # ======================
-                    # Filtro de Mercado
+                    # Filtro de Mercado (corrigido: pega todos os mercados do cabeçalho)
                     # ======================
-                    mercados_disponiveis = df_detalhadas["mercado"].unique().tolist()
+                    todos_mercados_db = db_queries.buscar_mercados()
+                    df_todos_mercados = pd.DataFrame(todos_mercados_db)
+                    mercados_ids_periodo = df_cabecalho["mercado_id"].unique().tolist()
+                    mercados_disponiveis = df_todos_mercados[df_todos_mercados["id"].isin(mercados_ids_periodo)]["nome"].tolist()
                     # Guardar seleção no session_state para não resetar
                     if "mercados_selecionados" not in st.session_state:
                         st.session_state["mercados_selecionados"] = mercados_disponiveis
