@@ -100,17 +100,15 @@ with tab2:
 st.markdown("---")
 with st.expander("ℹ️ Sobre a Funcionalidade Comunitária"):
     st.markdown("""
-    **🤝 Como funciona a funcionalidade comunitária de mercados:**
-    
-    - ✅ **Compartilhamento:** Todos os mercados são visíveis para todos os usuários
-    - ✅ **Contribuição:** Qualquer usuário pode adicionar novos mercados
-    - ✅ **Benefício Mútuo:** Quanto mais mercados cadastrados, melhor para toda a comunidade
-    - ✅ **Privacidade:** Apenas os mercados são compartilhados, suas compras permanecem privadas
-    
-    **📝 Dicas para adicionar mercados:**
-    - Verifique se o mercado já não está cadastrado
-    - Use nomes completos e oficiais dos estabelecimentos
-    - Inclua endereços completos para facilitar a localização
+    **🤝 Funcionalidade Comunitária de Mercados**
+
+    - ✅ **Compartilhamento público de mercados:** mercados cadastrados são visíveis para todos os usuários
+    - ✅ **Contribuição aberta:** qualquer usuário pode adicionar mercados para ampliar a base
+    - ✅ **Privacidade preservada:** somente os cadastros de mercados são públicos; suas compras continuam privadas
+
+    **📝 Boas práticas ao adicionar um mercado:**
+    - Verifique se já não existe o mesmo mercado cadastrado
+    - Utilize o nome oficial e um endereço completo
     """)
 
 # Rodapé

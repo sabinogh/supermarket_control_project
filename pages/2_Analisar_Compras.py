@@ -10,6 +10,9 @@ from services.supabase_client import (
 import datetime
 import plotly.express as px
 
+# Abrir esta página em modo wide por padrão
+st.set_page_config(layout="wide")
+
 
 st.sidebar.title("Menu de Navegação")
 st.sidebar.markdown("GSproject")
@@ -124,27 +127,43 @@ if st.button("🔍 Buscar Minhas Compras", type="primary"):
                                 df_precos["var_min"] = ((df_precos["minimo"] - df_precos["media"]) / df_precos["media"]) * 100
                                 df_aumento = df_precos[(df_precos["count"] > 1) & (df_precos["var_max"] > 0)]
                                 df_aumento = df_aumento.sort_values("var_max", ascending=False).head(10)
-                                fig_aumento = px.bar(
-                                    df_aumento,
-                                    x="var_max",
-                                    y="descricao",
-                                    orientation="h",
-                                    labels={"var_max": "Variação (%)", "descricao": "Item"}
-                                )
-                                st.plotly_chart(fig_aumento, use_container_width=True, height=350)
+                                if not df_aumento.empty:
+                                    # Formata rótulos para porcentagem com 1 casa decimal
+                                    df_aumento = df_aumento.copy()
+                                    df_aumento["var_max_fmt"] = df_aumento["var_max"].map(lambda v: f"{v:.1f}%")
+                                    fig_aumento = px.bar(
+                                        df_aumento,
+                                        x="var_max",
+                                        y="descricao",
+                                        orientation="h",
+                                        labels={"var_max": "Variação (%)", "descricao": "Item"}
+                                    )
+                                    # Adiciona texto nas barras
+                                    fig_aumento.update_traces(text=df_aumento["var_max"].map(lambda v: f"{v:.1f}%"), textposition='outside')
+                                    fig_aumento.update_layout(yaxis={'categoryorder':'total ascending'})
+                                    st.plotly_chart(fig_aumento, use_container_width=True, height=350, key="chart_aumento")
+                                else:
+                                    st.info("Nenhum item com aumento de preço significativo neste período.")
                             # Gráfico: Itens com Maior Redução de Preço
                             with col_g2:
                                 st.subheader("Itens com Maior Redução de Preço")
                                 df_reducao = df_precos[(df_precos["count"] > 1) & (df_precos["var_min"] < 0)]
                                 df_reducao = df_reducao.sort_values("var_min").head(10)
-                                fig_reducao = px.bar(
-                                    df_reducao,
-                                    x="var_min",
-                                    y="descricao",
-                                    orientation="h",
-                                    labels={"var_min": "Variação (%)", "descricao": "Item"}
-                                )
-                                st.plotly_chart(fig_reducao, use_container_width=True, height=350)
+                                if not df_reducao.empty:
+                                    df_reducao = df_reducao.copy()
+                                    df_reducao["var_min_fmt"] = df_reducao["var_min"].map(lambda v: f"{v:.1f}%")
+                                    fig_reducao = px.bar(
+                                        df_reducao,
+                                        x="var_min",
+                                        y="descricao",
+                                        orientation="h",
+                                        labels={"var_min": "Variação (%)", "descricao": "Item"}
+                                    )
+                                    fig_reducao.update_traces(text=df_reducao["var_min"].map(lambda v: f"{v:.1f}%"), textposition='outside')
+                                    fig_reducao.update_layout(yaxis={'categoryorder':'total ascending'})
+                                    st.plotly_chart(fig_reducao, use_container_width=True, height=350, key="chart_reducao")
+                                else:
+                                    st.info("Nenhum item com redução de preço significativo neste período.")
 
                             # Gráficos 3 e 4 lado a lado
                             col_g3, col_g4 = st.columns(2)
@@ -161,10 +180,26 @@ if st.button("🔍 Buscar Minhas Compras", type="primary"):
                                     y="valor_final_pago",
                                     labels={"mes": "Mês", "valor_final_pago": "Valor total gasto"}
                                 )
-                                if len(df_gasto_mensal) >= 3:
-                                    media_mensal = df_gasto_mensal["valor_final_pago"].mean()
-                                    fig_gasto_mensal.add_hline(y=media_mensal, line_dash="dash", line_color="red", annotation_text="Média mensal", annotation_position="top left")
-                                st.plotly_chart(fig_gasto_mensal, use_container_width=True, height=350)
+                                if not df_gasto_mensal.empty:
+                                    df_gasto_mensal = df_gasto_mensal.copy()
+                                    # Converter para milhares e formatar uma casa decimal
+                                    df_gasto_mensal["valor_mil"] = df_gasto_mensal["valor_final_pago"] / 1000.0
+                                    df_gasto_mensal["valor_mil_fmt"] = df_gasto_mensal["valor_mil"].map(lambda v: f"{v:.1f} mil")
+                                    # Atualiza o gráfico para usar valor em milhares
+                                    fig_gasto_mensal = px.bar(
+                                        df_gasto_mensal,
+                                        x="mes",
+                                        y="valor_mil",
+                                        labels={"mes": "Mês", "valor_mil": "Valor (mil)"}
+                                    )
+                                    # adiciona rótulos com 1 casa decimal
+                                    fig_gasto_mensal.update_traces(text=df_gasto_mensal["valor_mil"].map(lambda v: f"{v:.1f} mil"), textposition='outside')
+                                    if len(df_gasto_mensal) >= 3:
+                                        media_mensal = df_gasto_mensal["valor_mil"].mean()
+                                        fig_gasto_mensal.add_hline(y=media_mensal, line_dash="dash", line_color="red", annotation_text="Média mensal", annotation_position="top left")
+                                    st.plotly_chart(fig_gasto_mensal, use_container_width=True, height=350, key="chart_gasto_mensal")
+                                else:
+                                    st.info("Nenhum gasto mensal disponível para plotar.")
                             with col_g4:
                                 st.subheader("Tendência de Gastos (Regressão Linear)")
                                 if not df_gasto_mensal.empty:
@@ -185,19 +220,32 @@ if st.button("🔍 Buscar Minhas Compras", type="primary"):
                                         next_month = ult_mes + pd.DateOffset(months=i)
                                         proj_labels.append(next_month.strftime("%B/%Y"))
                                     x_labels = meses_labels + proj_labels
+                                    # Converter y (valor_total) para milhares para exibição
+                                    y_mil = y / 1000.0
+                                    y_pred_mil = y_pred / 1000.0
                                     fig_tend = px.line(
-                                        x=x_labels[:len(y)],
-                                        y=y,
-                                        labels={"x": "Mês", "y": "Valor total gasto"}
+                                        x=x_labels[:len(y_mil)],
+                                        y=y_mil,
+                                        labels={"x": "Mês", "y": "Valor (mil)"}
                                     )
+                                    # adicionar pontos/linhas de projeção em milhares
                                     fig_tend.add_scatter(
-                                        x=x_labels[len(y):],
-                                        y=y_pred[len(y):],
+                                        x=x_labels[len(y_mil):],
+                                        y=y_pred_mil[len(y_mil):],
                                         mode="lines",
                                         line=dict(dash="dot", color="orange"),
                                         name="Projeção 6 meses"
                                     )
-                                    st.plotly_chart(fig_tend, use_container_width=True, height=350)
+                                    # adicionar rótulos com 1 casa decimal nos pontos históricos
+                                    # os primeiros dados são o histórico (trace 0) e a projeção foi adicionada depois
+                                    if len(fig_tend.data) > 0:
+                                        try:
+                                            labels_hist = [f"{v:.1f} mil" for v in y_mil]
+                                            fig_tend.data[0].update(mode='lines+markers+text', text=labels_hist, textposition='top center')
+                                        except Exception:
+                                            # fallback: apenas mostra markers se algo falhar
+                                            fig_tend.update_traces(mode='lines+markers')
+                                    st.plotly_chart(fig_tend, use_container_width=True, height=350, key="chart_tendencia")
 
                             # =====================
                             # ANÁLISE FINAL: Preço médio dos itens no período selecionado

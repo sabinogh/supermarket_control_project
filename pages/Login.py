@@ -171,8 +171,7 @@ with st.expander("📋 Informações sobre Privacidade (LGPD)"):
     - ✅ Não compartilhamos seus dados com terceiros
     - ✅ Você pode solicitar a exclusão de seus dados a qualquer momento
     - ✅ Os dados de registro de mercados são compartilhados para benefício da comunidade
-    
-    **📧 Contato:** Para questões sobre privacidade, entre em contato conosco: gh.sabino@gmail.com
+        **📧 Contato:** Para questões sobre privacidade, entre em contato conosco: gh.sabino@gmail.com
     """)
 
 # Rodapé
