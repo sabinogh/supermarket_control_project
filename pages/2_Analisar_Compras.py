@@ -165,87 +165,102 @@ if st.button("🔍 Buscar Minhas Compras", type="primary"):
                                 else:
                                     st.info("Nenhum item com redução de preço significativo neste período.")
 
-                            # Gráficos 3 e 4 lado a lado
-                            col_g3, col_g4 = st.columns(2)
-                            with col_g3:
-                                st.subheader("Gasto Mensal")
-                                df_cabecalho_filtrado["mes"] = pd.to_datetime(df_cabecalho_filtrado["data_compra"]).dt.strftime("%B/%Y")
-                                df_cabecalho_filtrado = df_cabecalho_filtrado.sort_values("data_compra")
-                                df_gasto_mensal = df_cabecalho_filtrado.groupby("mes", sort=False)["valor_final_pago"].sum().reset_index()
-                                df_gasto_mensal["mes_ordem"] = pd.to_datetime(df_gasto_mensal["mes"], format="%B/%Y")
-                                df_gasto_mensal = df_gasto_mensal.sort_values("mes_ordem")
+                            # Gasto Mensal seguido de Tendência (Regressão Linear) em coluna única
+                            st.subheader("Gasto Mensal")
+                            df_cabecalho_filtrado["mes"] = pd.to_datetime(df_cabecalho_filtrado["data_compra"]).dt.strftime("%B/%Y")
+                            df_cabecalho_filtrado = df_cabecalho_filtrado.sort_values("data_compra")
+                            df_gasto_mensal = df_cabecalho_filtrado.groupby("mes", sort=False)["valor_final_pago"].sum().reset_index()
+                            df_gasto_mensal["mes_ordem"] = pd.to_datetime(df_gasto_mensal["mes"], format="%B/%Y")
+                            df_gasto_mensal = df_gasto_mensal.sort_values("mes_ordem")
+                            fig_gasto_mensal = px.bar(
+                                df_gasto_mensal,
+                                x="mes",
+                                y="valor_final_pago",
+                                labels={"mes": "Mês", "valor_final_pago": "Valor total gasto"}
+                            )
+                            if not df_gasto_mensal.empty:
+                                df_gasto_mensal = df_gasto_mensal.copy()
+                                # Converter para milhares e formatar uma casa decimal
+                                df_gasto_mensal["valor_mil"] = df_gasto_mensal["valor_final_pago"] / 1000.0
+                                df_gasto_mensal["valor_mil_fmt"] = df_gasto_mensal["valor_mil"].map(lambda v: f"{v:.1f} mil")
+                                # Cálculos para os cards: total e média (valores em reais e em milhares)
+                                total_real = df_gasto_mensal["valor_final_pago"].sum()
+                                media_real = df_gasto_mensal["valor_final_pago"].mean() if not df_gasto_mensal["valor_final_pago"].empty else 0
+                                total_mil = total_real / 1000.0
+                                media_mil = media_real / 1000.0
+
+                                # Exibir dois cards acima do gráfico: Total do período e Média mensal
+                                card_col1, card_col2 = st.columns(2)
+                                try:
+                                    card_col1.metric("Total no Período", f"R$ {total_real:,.2f}", f"{total_mil:.1f} mil")
+                                    card_col2.metric("Média Mensal", f"R$ {media_real:,.2f}", f"{media_mil:.1f} mil")
+                                except Exception:
+                                    # Fallback simples caso st.metric tenha algum problema
+                                    card_col1.write(f"**Total no Período:** R$ {total_real:,.2f} (~{total_mil:.1f} mil)")
+                                    card_col2.write(f"**Média Mensal:** R$ {media_real:,.2f} (~{media_mil:.1f} mil)")
+
+                                # Atualiza o gráfico para usar valor em milhares
                                 fig_gasto_mensal = px.bar(
                                     df_gasto_mensal,
                                     x="mes",
-                                    y="valor_final_pago",
-                                    labels={"mes": "Mês", "valor_final_pago": "Valor total gasto"}
+                                    y="valor_mil",
+                                    labels={"mes": "Mês", "valor_mil": "Valor (mil)"}
                                 )
-                                if not df_gasto_mensal.empty:
-                                    df_gasto_mensal = df_gasto_mensal.copy()
-                                    # Converter para milhares e formatar uma casa decimal
-                                    df_gasto_mensal["valor_mil"] = df_gasto_mensal["valor_final_pago"] / 1000.0
-                                    df_gasto_mensal["valor_mil_fmt"] = df_gasto_mensal["valor_mil"].map(lambda v: f"{v:.1f} mil")
-                                    # Atualiza o gráfico para usar valor em milhares
-                                    fig_gasto_mensal = px.bar(
-                                        df_gasto_mensal,
-                                        x="mes",
-                                        y="valor_mil",
-                                        labels={"mes": "Mês", "valor_mil": "Valor (mil)"}
-                                    )
-                                    # adiciona rótulos com 1 casa decimal
-                                    fig_gasto_mensal.update_traces(text=df_gasto_mensal["valor_mil"].map(lambda v: f"{v:.1f} mil"), textposition='outside')
-                                    if len(df_gasto_mensal) >= 3:
-                                        media_mensal = df_gasto_mensal["valor_mil"].mean()
-                                        fig_gasto_mensal.add_hline(y=media_mensal, line_dash="dash", line_color="red", annotation_text="Média mensal", annotation_position="top left")
-                                    st.plotly_chart(fig_gasto_mensal, use_container_width=True, height=350, key="chart_gasto_mensal")
-                                else:
-                                    st.info("Nenhum gasto mensal disponível para plotar.")
-                            with col_g4:
-                                st.subheader("Tendência de Gastos (Regressão Linear)")
-                                if not df_gasto_mensal.empty:
-                                    meses_labels = df_gasto_mensal["mes"].tolist()
-                                    df_gasto_mensal["mes_num"] = range(1, len(df_gasto_mensal) + 1)
-                                    x = df_gasto_mensal["mes_num"].values.reshape(-1, 1)
-                                    y = df_gasto_mensal["valor_final_pago"].values
-                                    from sklearn.linear_model import LinearRegression
-                                    model = LinearRegression()
-                                    model.fit(x, y)
-                                    x_pred = np.arange(1, len(df_gasto_mensal) + 7).reshape(-1, 1)
-                                    y_pred = model.predict(x_pred)
-                                    import calendar
-                                    from datetime import datetime
-                                    ult_mes = pd.to_datetime(df_gasto_mensal["mes"].iloc[-1], format="%B/%Y")
-                                    proj_labels = []
-                                    for i in range(1, 7):
-                                        next_month = ult_mes + pd.DateOffset(months=i)
-                                        proj_labels.append(next_month.strftime("%B/%Y"))
-                                    x_labels = meses_labels + proj_labels
-                                    # Converter y (valor_total) para milhares para exibição
-                                    y_mil = y / 1000.0
-                                    y_pred_mil = y_pred / 1000.0
-                                    fig_tend = px.line(
-                                        x=x_labels[:len(y_mil)],
-                                        y=y_mil,
-                                        labels={"x": "Mês", "y": "Valor (mil)"}
-                                    )
-                                    # adicionar pontos/linhas de projeção em milhares
-                                    fig_tend.add_scatter(
-                                        x=x_labels[len(y_mil):],
-                                        y=y_pred_mil[len(y_mil):],
-                                        mode="lines",
-                                        line=dict(dash="dot", color="orange"),
-                                        name="Projeção 6 meses"
-                                    )
-                                    # adicionar rótulos com 1 casa decimal nos pontos históricos
-                                    # os primeiros dados são o histórico (trace 0) e a projeção foi adicionada depois
-                                    if len(fig_tend.data) > 0:
-                                        try:
-                                            labels_hist = [f"{v:.1f} mil" for v in y_mil]
-                                            fig_tend.data[0].update(mode='lines+markers+text', text=labels_hist, textposition='top center')
-                                        except Exception:
-                                            # fallback: apenas mostra markers se algo falhar
-                                            fig_tend.update_traces(mode='lines+markers')
-                                    st.plotly_chart(fig_tend, use_container_width=True, height=350, key="chart_tendencia")
+                                # adiciona rótulos com 1 casa decimal
+                                fig_gasto_mensal.update_traces(text=df_gasto_mensal["valor_mil"].map(lambda v: f"{v:.1f} mil"), textposition='outside')
+                                if len(df_gasto_mensal) >= 3:
+                                    media_mensal = df_gasto_mensal["valor_mil"].mean()
+                                    fig_gasto_mensal.add_hline(y=media_mensal, line_dash="dash", line_color="red", annotation_text="Média mensal", annotation_position="top left")
+                                st.plotly_chart(fig_gasto_mensal, use_container_width=True, height=350, key="chart_gasto_mensal")
+                            else:
+                                st.info("Nenhum gasto mensal disponível para plotar.")
+
+                            # Agora exibe a Tendência abaixo do gráfico de gasto mensal
+                            st.subheader("Tendência de Gastos (Regressão Linear)")
+                            if not df_gasto_mensal.empty:
+                                meses_labels = df_gasto_mensal["mes"].tolist()
+                                df_gasto_mensal["mes_num"] = range(1, len(df_gasto_mensal) + 1)
+                                x = df_gasto_mensal["mes_num"].values.reshape(-1, 1)
+                                y = df_gasto_mensal["valor_final_pago"].values
+                                from sklearn.linear_model import LinearRegression
+                                model = LinearRegression()
+                                model.fit(x, y)
+                                x_pred = np.arange(1, len(df_gasto_mensal) + 7).reshape(-1, 1)
+                                y_pred = model.predict(x_pred)
+                                import calendar
+                                from datetime import datetime
+                                ult_mes = pd.to_datetime(df_gasto_mensal["mes"].iloc[-1], format="%B/%Y")
+                                proj_labels = []
+                                for i in range(1, 7):
+                                    next_month = ult_mes + pd.DateOffset(months=i)
+                                    proj_labels.append(next_month.strftime("%B/%Y"))
+                                x_labels = meses_labels + proj_labels
+                                # Converter y (valor_total) para milhares para exibição
+                                y_mil = y / 1000.0
+                                y_pred_mil = y_pred / 1000.0
+                                fig_tend = px.line(
+                                    x=x_labels[:len(y_mil)],
+                                    y=y_mil,
+                                    labels={"x": "Mês", "y": "Valor (mil)"}
+                                )
+                                # adicionar pontos/linhas de projeção em milhares
+                                fig_tend.add_scatter(
+                                    x=x_labels[len(y_mil):],
+                                    y=y_pred_mil[len(y_mil):],
+                                    mode="lines",
+                                    line=dict(dash="dot", color="orange"),
+                                    name="Projeção 6 meses"
+                                )
+                                # adicionar rótulos com 1 casa decimal nos pontos históricos
+                                # os primeiros dados são o histórico (trace 0) e a projeção foi adicionada depois
+                                if len(fig_tend.data) > 0:
+                                    try:
+                                        labels_hist = [f"{v:.1f} mil" for v in y_mil]
+                                        fig_tend.data[0].update(mode='lines+markers+text', text=labels_hist, textposition='top center')
+                                    except Exception:
+                                        # fallback: apenas mostra markers se algo falhar
+                                        fig_tend.update_traces(mode='lines+markers')
+                                st.plotly_chart(fig_tend, use_container_width=True, height=350, key="chart_tendencia")
 
                             # =====================
                             # ANÁLISE FINAL: Preço médio dos itens no período selecionado
